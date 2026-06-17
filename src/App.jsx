@@ -107,6 +107,14 @@ export default function App() {
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   
+  // Novas variáveis de segurança locais
+  const [adminPassword, setAdminPassword] = useState('admin');
+  const [securityPhrase, setSecurityPhrase] = useState('Só é feliz quem souber entender a alegria de viver');
+  const [settingsPassword, setSettingsPassword] = useState('admin');
+  const [settingsPhrase, setSettingsPhrase] = useState('Só é feliz quem souber entender a alegria de viver');
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryPhraseInput, setRecoveryPhraseInput] = useState('');
+
   // UI Modal Global
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'alert' });
   const [viewingRecord, setViewingRecord] = useState(null);
@@ -160,9 +168,21 @@ export default function App() {
     const savedUrl = safeStorage.getItem('zininho_gas_url');
     const savedPeople = safeStorage.getItem('zininho_known_people');
     const savedApiKey = safeStorage.getItem('zininho_gemini_api_key');
+    const savedPassword = safeStorage.getItem('zininho_admin_password');
+    const savedPhrase = safeStorage.getItem('zininho_security_phrase');
     
     if (savedPeople) setKnownPeople(savedPeople);
     if (savedApiKey) setGeminiApiKey(savedApiKey);
+    
+    if (savedPassword) {
+      setAdminPassword(savedPassword);
+      setSettingsPassword(savedPassword);
+    }
+    
+    if (savedPhrase) {
+      setSecurityPhrase(savedPhrase);
+      setSettingsPhrase(savedPhrase);
+    }
     
     if (savedUrl) { 
       setGasUrl(savedUrl); 
@@ -197,27 +217,23 @@ export default function App() {
   };
 
   const handleAdminLogin = () => {
-    // A senha é puxada de forma segura do ambiente da Vercel
-    let envPassword = undefined;
-    
-    try {
-      if (typeof import.meta !== 'undefined' && typeof import.meta.env !== 'undefined') {
-        envPassword = import.meta.env.VITE_ADMIN_PASSWORD;
-      }
-    } catch (error) {
-      envPassword = null;
-    }
-
-    if (!envPassword) {
-      showAlert('Erro no Servidor', 'A variável de ambiente VITE_ADMIN_PASSWORD não foi configurada na Vercel.');
-      return;
-    }
-
-    if (adminPasswordInput === envPassword) {
+    if (adminPasswordInput === adminPassword) {
       setIsAdminUnlocked(true);
       setAdminPasswordInput('');
+      setIsRecovering(false);
     } else {
       showAlert('Acesso Negado', 'Senha incorreta!');
+    }
+  };
+
+  const handleRecovery = () => {
+    if (recoveryPhraseInput === securityPhrase) {
+      setIsAdminUnlocked(true);
+      setRecoveryPhraseInput('');
+      setIsRecovering(false);
+      showAlert('Acesso Concedido', 'Frase de segurança correta. Não se esqueça de reconfigurar a sua senha na aba Ajustes.');
+    } else {
+      showAlert('Acesso Negado', 'Frase de segurança incorreta!');
     }
   };
 
@@ -230,7 +246,13 @@ export default function App() {
     safeStorage.setItem('zininho_gas_url', gasUrl);
     safeStorage.setItem('zininho_known_people', knownPeople);
     safeStorage.setItem('zininho_gemini_api_key', geminiApiKey);
-    showAlert('Ajustes Gravados', 'As suas definições foram atualizadas com sucesso.');
+    safeStorage.setItem('zininho_admin_password', settingsPassword);
+    safeStorage.setItem('zininho_security_phrase', settingsPhrase);
+    
+    setAdminPassword(settingsPassword);
+    setSecurityPhrase(settingsPhrase);
+    
+    showAlert('Ajustes Gravados', 'As suas definições e credenciais foram atualizadas com sucesso.');
     if (gasUrl) fetchData(gasUrl);
   };
 
@@ -647,6 +669,30 @@ ${batchText ? `Texto:\n"""\n${batchText}\n"""` : ''}`;
 
   const renderGestao = () => {
     if (!isAdminUnlocked) {
+      if (isRecovering) {
+        return (
+          <div className="max-w-md mx-auto mt-12 bg-white border-4 border-black p-8 text-center animate-in fade-in zoom-in duration-300 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <Icon name="Lock" className="w-16 h-16 text-black mx-auto mb-4" />
+            <h2 className="text-2xl font-black uppercase tracking-wider mb-2">Recuperar Acesso</h2>
+            <p className="text-sm font-medium mb-6">Insira a sua frase de segurança para desbloquear a gestão.</p>
+            <input 
+              type="text" 
+              value={recoveryPhraseInput} 
+              onChange={(e) => setRecoveryPhraseInput(e.target.value)} 
+              onKeyDown={(e) => e.key === 'Enter' && handleRecovery()}
+              placeholder="Frase de segurança..." 
+              className="w-full p-4 border-2 border-black bg-gray-50 text-center font-bold focus:border-blue-600 focus:bg-white outline-none mb-4 rounded-none text-sm" 
+            />
+            <button onClick={handleRecovery} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest py-4 border-2 border-black transition rounded-none mb-4">
+              Validar Frase
+            </button>
+            <button onClick={() => { setIsRecovering(false); setRecoveryPhraseInput(''); }} className="text-xs font-bold text-gray-500 hover:text-black uppercase underline">
+              Voltar para o Login
+            </button>
+          </div>
+        );
+      }
+
       return (
         <div className="max-w-md mx-auto mt-12 bg-white border-4 border-black p-8 text-center animate-in fade-in zoom-in duration-300 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
           <Icon name="Lock" className="w-16 h-16 text-black mx-auto mb-4" />
@@ -658,10 +704,13 @@ ${batchText ? `Texto:\n"""\n${batchText}\n"""` : ''}`;
             onChange={(e) => setAdminPasswordInput(e.target.value)} 
             onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
             placeholder="Senha de Acesso" 
-            className="w-full p-4 border-2 border-black bg-gray-50 text-center font-bold focus:border-blue-600 focus:bg-white outline-none mb-6 rounded-none text-lg tracking-widest" 
+            className="w-full p-4 border-2 border-black bg-gray-50 text-center font-bold focus:border-blue-600 focus:bg-white outline-none mb-4 rounded-none text-lg tracking-widest" 
           />
-          <button onClick={handleAdminLogin} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest py-4 border-2 border-black transition rounded-none">
+          <button onClick={handleAdminLogin} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest py-4 border-2 border-black transition rounded-none mb-4">
             Desbloquear
+          </button>
+          <button onClick={() => setIsRecovering(true)} className="text-xs font-bold text-gray-500 hover:text-black uppercase underline">
+            Esqueci a senha
           </button>
         </div>
       );
@@ -806,6 +855,23 @@ ${batchText ? `Texto:\n"""\n${batchText}\n"""` : ''}`;
           <div className="max-w-2xl bg-white border-2 border-black p-8 rounded-none">
             <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-2 border-b-2 border-black pb-4"><Icon name="Settings" className="w-6 h-6"/> Configurações de Sistema</h2>
             <div className="space-y-6">
+              
+              <div className="bg-yellow-50 p-4 border-2 border-yellow-400 mb-6">
+                <h3 className="text-sm font-black text-black uppercase mb-2">Credenciais de Acesso (Local)</h3>
+                <p className="text-xs text-black mb-4">A nova senha e frase ficarão guardadas de forma secreta apenas neste navegador. O GitHub continuará a ter apenas o padrão.</p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-black text-black uppercase mb-1">Nova Senha de Admin</label>
+                    <input type="text" value={settingsPassword} onChange={(e) => setSettingsPassword(e.target.value)} className="w-full p-3 border-2 border-black bg-white text-sm focus:border-blue-600 outline-none rounded-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-black uppercase mb-1">Frase de Segurança (Recuperação)</label>
+                    <input type="text" value={settingsPhrase} onChange={(e) => setSettingsPhrase(e.target.value)} className="w-full p-3 border-2 border-black bg-white text-sm focus:border-blue-600 outline-none rounded-none" />
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-black text-black uppercase mb-2 flex items-center gap-2"><Icon name="Cloud" className="w-4 h-4 text-blue-600"/> Planilha Apps Script (URL)</label>
                 <input type="text" value={gasUrl} onChange={(e) => setGasUrl(e.target.value)} placeholder="https://script.google.com/macros/s/..." className="w-full p-3 border-2 border-black bg-gray-50 text-sm focus:border-blue-600 focus:bg-white outline-none rounded-none" />
