@@ -101,6 +101,12 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [syncStatus, setSyncStatus] = useState('idle');
   
+  // Novos estados para a API e Senha
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [isSettingsUnlocked, setIsSettingsUnlocked] = useState(false);
+  const [settingsPasswordInput, setSettingsPasswordInput] = useState('');
+  const SETTINGS_PASSWORD = 'admin'; // <--- Altere a senha de acesso aqui se desejar
+  
   // UI Modal Global
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'alert' });
   
@@ -164,7 +170,10 @@ export default function App() {
   useEffect(() => {
     const savedUrl = safeStorage.getItem('zininho_gas_url');
     const savedPeople = safeStorage.getItem('zininho_known_people');
+    const savedApiKey = safeStorage.getItem('zininho_gemini_api_key');
+    
     if (savedPeople) setKnownPeople(savedPeople);
+    if (savedApiKey) setGeminiApiKey(savedApiKey);
     
     if (savedUrl) { 
       setGasUrl(savedUrl); 
@@ -201,8 +210,26 @@ export default function App() {
   const saveSettings = () => {
     safeStorage.setItem('zininho_gas_url', gasUrl);
     safeStorage.setItem('zininho_known_people', knownPeople);
+    safeStorage.setItem('zininho_gemini_api_key', geminiApiKey);
     setShowSettings(false);
+    setIsSettingsUnlocked(false);
+    setSettingsPasswordInput('');
     if (gasUrl) fetchData(gasUrl);
+  };
+
+  const closeSettings = () => {
+    setShowSettings(false);
+    setIsSettingsUnlocked(false);
+    setSettingsPasswordInput('');
+  };
+
+  const handleUnlockSettings = () => {
+    if (settingsPasswordInput === SETTINGS_PASSWORD) {
+      setIsSettingsUnlocked(true);
+      setSettingsPasswordInput('');
+    } else {
+      showAlert('Erro', 'Senha incorreta!');
+    }
   };
 
   const goToAcervo = (filter) => {
@@ -262,7 +289,14 @@ export default function App() {
       reader.onloadend = async () => {
         try {
           const base64Data = reader.result.split(',')[1];
-          const apiKey = ""; 
+          const apiKey = geminiApiKey; 
+          
+          if (!apiKey) {
+            setAiAnalysisResult("Chave da API do Google não configurada. Vá em 'Definições' para adicionar a sua chave.");
+            setAnalyzingFile(false);
+            return;
+          }
+          
           const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
           
           let prompt = `Você é um arquivista especialista (Padrão NOBRADE). Analise este arquivo digital do acervo Zininho. 
@@ -359,7 +393,14 @@ Forneça a resposta em formato de texto limpo, pronto para ser copiado para o ca
     setBatchError('');
     setBatchResults([]);
 
-    const apiKey = ""; 
+    const apiKey = geminiApiKey; 
+    
+    if (!apiKey) {
+      setBatchError("Chave da API do Google não configurada. Vá em 'Definições' para adicionar a sua chave.");
+      setAnalyzingBatch(false);
+      return;
+    }
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
     
     const planContext = JSON.stringify(classificationPlan, null, 2);
@@ -1338,25 +1379,54 @@ A trajetória de Zininho, marcada por sua contribuição cultural para Florianó
           <div className="bg-white w-full max-w-lg border-4 border-black rounded-none shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
             <div className="bg-black p-4 flex justify-between items-center text-white border-b-4 border-red-600">
               <h2 className="text-lg font-black uppercase tracking-wider flex items-center gap-2"><Icon name="Settings" className="w-5 h-5"/> Definições</h2>
-              <button onClick={() => setShowSettings(false)} className="text-white hover:text-red-600"><Icon name="X" className="w-6 h-6"/></button>
+              <button onClick={closeSettings} className="text-white hover:text-red-600"><Icon name="X" className="w-6 h-6"/></button>
             </div>
             
-            <div className="p-6 space-y-6">
-              <div>
-                <label className="block text-xs font-black text-black uppercase mb-2 flex items-center gap-2"><Icon name="Cloud" className="w-4 h-4 text-blue-600"/> Planilha Apps Script (URL)</label>
-                <input type="text" value={gasUrl} onChange={(e) => setGasUrl(e.target.value)} placeholder="https://script.google.com/macros/s/..." className="w-full p-3 border-2 border-black bg-white font-mono text-sm focus:border-blue-600 outline-none rounded-none" />
+            {!isSettingsUnlocked ? (
+              <div className="p-6 space-y-6">
+                <div className="text-center mb-4">
+                  <Icon name="Settings" className="w-12 h-12 text-black mx-auto mb-2" />
+                  <p className="text-sm font-bold text-black uppercase">Área Restrita</p>
+                  <p className="text-xs text-gray-600">Insira a senha para aceder às definições.</p>
+                </div>
+                <div>
+                  <input 
+                    type="password" 
+                    value={settingsPasswordInput} 
+                    onChange={(e) => setSettingsPasswordInput(e.target.value)} 
+                    onKeyDown={(e) => e.key === 'Enter' && handleUnlockSettings()}
+                    placeholder="Senha de acesso..." 
+                    className="w-full p-3 border-2 border-black bg-white text-center font-bold text-sm focus:border-blue-600 outline-none rounded-none" 
+                  />
+                </div>
+                <button onClick={handleUnlockSettings} className="w-full bg-black hover:bg-gray-800 text-white font-black uppercase tracking-widest py-4 border-2 border-black transition rounded-none">
+                  Desbloquear
+                </button>
               </div>
+            ) : (
+              <div className="p-6 space-y-6">
+                <div>
+                  <label className="block text-xs font-black text-black uppercase mb-2 flex items-center gap-2"><Icon name="Cloud" className="w-4 h-4 text-blue-600"/> Planilha Apps Script (URL)</label>
+                  <input type="text" value={gasUrl} onChange={(e) => setGasUrl(e.target.value)} placeholder="https://script.google.com/macros/s/..." className="w-full p-3 border-2 border-black bg-white font-mono text-sm focus:border-blue-600 outline-none rounded-none" />
+                </div>
 
-              <div>
-                <label className="block text-xs font-black text-black uppercase mb-2 flex items-center gap-2"><Icon name="Sparkles" className="w-4 h-4 text-yellow-500"/> Banco de Pessoas para IA</label>
-                <textarea value={knownPeople} onChange={(e) => setKnownPeople(e.target.value)} placeholder="Ex: Zininho, Neide Maria Rosa" className="w-full p-3 border-2 border-black bg-white text-sm focus:border-blue-600 outline-none h-20 resize-none rounded-none" />
-                <p className="text-[10px] text-black font-bold uppercase mt-2">Separados por vírgula para reconhecimento.</p>
+                <div>
+                  <label className="block text-xs font-black text-black uppercase mb-2 flex items-center gap-2"><Icon name="Wand2" className="w-4 h-4 text-red-600"/> Chave da API (Google Gemini)</label>
+                  <input type="password" value={geminiApiKey} onChange={(e) => setGeminiApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full p-3 border-2 border-black bg-white font-mono text-sm focus:border-blue-600 outline-none rounded-none" />
+                  <p className="text-[10px] text-black font-bold uppercase mt-2">Necessária para as análises com Inteligência Artificial.</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-black uppercase mb-2 flex items-center gap-2"><Icon name="Sparkles" className="w-4 h-4 text-yellow-500"/> Banco de Pessoas para IA</label>
+                  <textarea value={knownPeople} onChange={(e) => setKnownPeople(e.target.value)} placeholder="Ex: Zininho, Neide Maria Rosa" className="w-full p-3 border-2 border-black bg-white text-sm focus:border-blue-600 outline-none h-20 resize-none rounded-none" />
+                  <p className="text-[10px] text-black font-bold uppercase mt-2">Separados por vírgula para reconhecimento.</p>
+                </div>
+
+                <button onClick={saveSettings} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest py-4 border-2 border-black transition rounded-none">
+                  Gravar
+                </button>
               </div>
-
-              <button onClick={saveSettings} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest py-4 border-2 border-black transition rounded-none">
-                Gravar
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
