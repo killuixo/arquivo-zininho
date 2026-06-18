@@ -461,17 +461,14 @@ export default function App() {
         <div className="hidden md:block absolute top-0 left-0 w-3 h-full bg-red-600 border-r-2 border-black"></div>
         <div className="hidden md:block absolute top-0 right-0 w-32 h-3 bg-yellow-400 border-b-2 border-l-2 border-black"></div>
         <div className="relative z-10 md:ml-6">
-          <h2 className="text-4xl font-black text-black mb-3 uppercase tracking-tighter">Arquivo Zininho</h2>
-          <p className="text-black max-w-2xl text-sm leading-relaxed font-medium">Acervo histórico de Cláudio Alvim Barbosa. Navegue pelo quadro de arranjo para explorar documentos e fotografias.</p>
+          <h2 className="text-4xl font-black text-black mb-3 uppercase tracking-tighter">Zininho</h2>
+          <p className="text-black max-w-3xl text-sm leading-relaxed font-medium text-justify">Cláudio Alvim Barbosa (1929-1998), conhecido como Zininho, foi radialista, músico e o compositor do hino de Florianópolis. Para além do seu legado artístico, atuou como um guardião informal da memória local. Ao navegar pelo quadro de arranjo abaixo, encontrará o seu acervo: documentos da sua vida pessoal e a sua vasta produção profissional, que inclui registos fotográficos, partituras, jingles, e gravações de rádio que preservam a história cultural catarinense.</p>
         </div>
         <div className="relative z-10 flex flex-col sm:flex-row gap-4 items-stretch">
           <div className="text-center p-4 bg-white border-2 border-black min-w-[120px]">
             <p className="text-4xl font-black text-blue-600">{rows.length}</p>
             <p className="text-[10px] font-bold text-black uppercase tracking-widest mt-1">Registos</p>
           </div>
-          <button onClick={() => { resetForm(rows); setCurrentView('gestao'); setGestaoTab('adicionar'); }} className="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 border-2 border-black transition flex items-center justify-center gap-2 uppercase tracking-wide text-sm">
-            <Icon name="FilePlus" className="w-5 h-5"/> Adicionar
-          </button>
         </div>
       </div>
 
@@ -820,7 +817,7 @@ export default function App() {
 
             <div className="flex items-center gap-4 relative z-10 shrink-0">
               <div className="bg-blue-600 p-2 border-2 border-black"><Icon name="BookOpen" className="w-6 h-6 text-white" /></div>
-              <div><h1 className="text-2xl font-black tracking-tighter uppercase">Sistema Zininho</h1><p className="text-[10px] uppercase tracking-widest font-bold">NOBRADE / Fiocruz</p></div>
+              <div><h1 className="text-2xl font-black tracking-tighter uppercase">Arquivo Zininho</h1><p className="text-[10px] uppercase tracking-widest font-bold">Gestão e Descrição Arquivística (NOBRADE)</p></div>
             </div>
             
             <div className="flex flex-wrap justify-center border-2 border-black w-full xl:w-auto relative z-10 overflow-hidden">
