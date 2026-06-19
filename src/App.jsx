@@ -31,7 +31,8 @@ const Icon = ({ name, className, title }) => {
     CheckCircle: <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>,
     AlertCircle: <><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>,
     Lock: <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
-    Unlock: <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></>
+    Unlock: <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></>,
+    Download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>
   };
   return (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -92,7 +93,7 @@ export default function App() {
   
   // Estados de Navegação e Segurança
   const [currentView, setCurrentView] = useState('dashboard'); // dashboard | historia | explorar | gestao
-  const [gestaoTab, setGestaoTab] = useState('adicionar'); // adicionar | importar | ajustes
+  const [gestaoTab, setGestaoTab] = useState('adicionar'); // adicionar | importar | exportar | ajustes
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [adminPassword, setAdminPassword] = useState('admin');
@@ -434,6 +435,68 @@ export default function App() {
     });
   };
 
+  const exportToCSV = (type) => {
+    if (rows.length === 0) {
+      showAlert("Aviso", "Não existem registos para exportar.");
+      return;
+    }
+
+    let csvContent = "";
+    let filename = "";
+
+    const escapeCSV = (val) => `"${(val || '').toString().replace(/"/g, '""')}"`;
+
+    if (type === 'archivematica') {
+      filename = "metadata.csv";
+      // Formato Archivematica: filename (obrigatório) + Dublin Core
+      csvContent += "filename,dc.title,dc.date,dc.creator,dc.description,dc.language,nobrade.identifier,nobrade.class\n";
+      rows.forEach(r => {
+        const row = [
+          r.newName || r.originalName || 'sem_ficheiro',
+          r.title,
+          r.date,
+          r.creator,
+          r.scope,
+          r.language,
+          r.id,
+          `${r.className} > ${r.subclassName}`
+        ].map(escapeCSV).join(',');
+        csvContent += row + "\n";
+      });
+    } else if (type === 'tainacan') {
+      filename = "tainacan_export.csv";
+      // Formato Tainacan: special_document (para o ficheiro) + Dublin Core mapeado
+      csvContent += "special_document,title,date,creator,description,language,fundo,serie,identificador\n";
+      rows.forEach(r => {
+        const row = [
+          r.newName || r.originalName || '',
+          r.title,
+          r.date,
+          r.creator,
+          r.scope,
+          r.language,
+          r.className,
+          r.subclassName,
+          r.id
+        ].map(escapeCSV).join(',');
+        csvContent += row + "\n";
+      });
+    }
+
+    // \uFEFF forçar codificação UTF-8 (útil para abrir perfeitamente no Excel com acentos)
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showAlert("Exportação Concluída", `O ficheiro ${filename} foi descarregado com sucesso.`);
+  };
+
   // ==========================================
   // RENDERIZAÇÃO DE COMPONENTES DE UI
   // ==========================================
@@ -578,7 +641,6 @@ export default function App() {
     </div>
   );
 
-  // NOVO: COMPONENTE DE IMPORTAÇÃO EM LOTE QUE CAUSAVA A TELA BRANCA
   const renderBatchImport = () => (
     <div className="bg-white border-2 border-black p-6 rounded-none max-w-4xl mx-auto">
       <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-2 border-b-2 border-black pb-4">
@@ -658,11 +720,54 @@ export default function App() {
         <div className="flex flex-col sm:flex-row bg-white border-2 border-black rounded-none">
           <button onClick={() => setGestaoTab('adicionar')} className={`flex-1 p-4 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 border-b-2 sm:border-b-0 sm:border-r-2 border-black ${gestaoTab === 'adicionar' ? 'bg-black text-white' : 'hover:bg-yellow-400 text-black'}`}><Icon name="FilePlus" className="w-4 h-4"/> Adicionar Item</button>
           <button onClick={() => setGestaoTab('importar')} className={`flex-1 p-4 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 border-b-2 sm:border-b-0 sm:border-r-2 border-black ${gestaoTab === 'importar' ? 'bg-black text-white' : 'hover:bg-blue-600 hover:text-white text-black'}`}><Icon name="Wand2" className="w-4 h-4"/> Importar (IA)</button>
+          <button onClick={() => setGestaoTab('exportar')} className={`flex-1 p-4 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 border-b-2 sm:border-b-0 sm:border-r-2 border-black ${gestaoTab === 'exportar' ? 'bg-black text-white' : 'hover:bg-green-600 hover:text-white text-black'}`}><Icon name="Download" className="w-4 h-4"/> Exportar</button>
           <button onClick={() => setGestaoTab('ajustes')} className={`flex-1 p-4 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2 ${gestaoTab === 'ajustes' ? 'bg-black text-white' : 'hover:bg-gray-200 text-black'}`}><Icon name="Settings" className="w-4 h-4"/> Ajustes</button>
         </div>
 
         {gestaoTab === 'importar' && renderBatchImport()}
         
+        {gestaoTab === 'exportar' && (
+          <div className="max-w-4xl mx-auto bg-white border-2 border-black p-8 rounded-none">
+            <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-2 border-b-2 border-black pb-4"><Icon name="Download" className="w-6 h-6 text-green-600"/> Exportação e Interoperabilidade</h2>
+            
+            <div className="space-y-6 text-sm text-black font-medium text-justify">
+              <p>Os dados do Arquivo Zininho estão estruturados com base na norma NOBRADE. Para garantir a interoperabilidade com outras plataformas, utilize as opções abaixo para gerar ficheiros CSV (Comma-Separated Values) automaticamente mapeados com o padrão Dublin Core (DC).</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                {/* Card Tainacan */}
+                <div className="border-2 border-black bg-gray-50 p-6 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-lg font-black uppercase mb-3 text-blue-600 border-b-2 border-black pb-2">Tainacan (Difusão)</h3>
+                    <p className="mb-4">Exporte um CSV formatado para integração no Tainacan (WordPress). Ideal para publicação e exibição em repositórios abertos ao público.</p>
+                    <ul className="list-disc pl-5 mb-6 text-xs space-y-1">
+                      <li>Usa <code className="bg-white px-1 border border-black font-mono">special_document</code> para mapear os ficheiros.</li>
+                      <li>Colunas mapeadas para <em>Dublin Core</em> (title, creator, description, etc).</li>
+                    </ul>
+                  </div>
+                  <button onClick={() => exportToCSV('tainacan')} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 uppercase border-2 border-black transition tracking-widest flex justify-center items-center gap-2">
+                    <Icon name="Download" className="w-5 h-5"/> Exportar Tainacan
+                  </button>
+                </div>
+
+                {/* Card Archivematica */}
+                <div className="border-2 border-black bg-gray-50 p-6 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-lg font-black uppercase mb-3 text-red-600 border-b-2 border-black pb-2">Archivematica (Preservação)</h3>
+                    <p className="mb-4">Gera o ficheiro <code className="bg-white px-1 border border-black font-mono">metadata.csv</code> exigido pelo Archivematica para empacotamento digital a longo prazo (geração de pacotes SIP/AIP).</p>
+                    <ul className="list-disc pl-5 mb-6 text-xs space-y-1">
+                      <li>Coluna obrigatória <code className="bg-white px-1 border border-black font-mono">filename</code> incluída no início.</li>
+                      <li>Colunas com o prefixo <code className="bg-white px-1 border border-black font-mono">dc.</code> para compatibilidade nativa com o METS.</li>
+                    </ul>
+                  </div>
+                  <button onClick={() => exportToCSV('archivematica')} className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 uppercase border-2 border-black transition tracking-widest flex justify-center items-center gap-2">
+                    <Icon name="Download" className="w-5 h-5"/> Exportar Archivematica
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {gestaoTab === 'ajustes' && (
           <div className="max-w-2xl bg-white border-2 border-black p-8 rounded-none mx-auto">
             <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-2 border-b-2 border-black pb-4"><Icon name="Settings" className="w-6 h-6"/> Configurações de Sistema</h2>
